@@ -7,5 +7,4 @@ class FakeTTS:
         self.name = "fake-tts"
 
     def synthesize(self, text: str) -> bytes:
-        return text.encode("utf-8")
-
+        return f"WAV:{text}".encode("utf-8")

@@ -136,12 +136,72 @@ class CliEndToEndTests(unittest.TestCase):
             self.assertEqual(metadata["seed_instruction"], "Seed from file")
             self.assertTrue(metadata["ended_cleanly"])
 
+    def test_start_passes_voice_to_default_environment_builder(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+
+            with patch("interview.cli.Environment.build_anthropic") as build_environment:
+                build_environment.return_value = Environment.build_fake(
+                    llm_responses=["Opening question"],
+                    transcripts=[],
+                    voice="nova",
+                )
+
+                exit_code = main(
+                    ["start", "--seed", "Seed", "--voice", "nova", "--output-dir", str(output_dir)],
+                    stdin=io.StringIO("q\n"),
+                    stdout=io.StringIO(),
+                )
+
+            self.assertEqual(exit_code, 0)
+            build_environment.assert_called_once_with(voice="nova")
+            session_dir = self._only_session_dir(output_dir)
+            metadata = json.loads((session_dir / "metadata.json").read_text(encoding="utf-8"))
+            self.assertEqual(metadata["voice"], "nova")
+
+    def test_start_uses_default_voice_when_flag_is_omitted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+
+            with patch("interview.cli.Environment.build_anthropic") as build_environment:
+                build_environment.return_value = Environment.build_fake(
+                    llm_responses=["Opening question"],
+                    transcripts=[],
+                    voice="alloy",
+                )
+
+                exit_code = main(
+                    ["start", "--seed", "Seed", "--output-dir", str(output_dir)],
+                    stdin=io.StringIO("q\n"),
+                    stdout=io.StringIO(),
+                )
+
+            self.assertEqual(exit_code, 0)
+            build_environment.assert_called_once_with(voice="alloy")
+            session_dir = self._only_session_dir(output_dir)
+            metadata = json.loads((session_dir / "metadata.json").read_text(encoding="utf-8"))
+            self.assertEqual(metadata["voice"], "alloy")
+
     def test_start_requires_anthropic_api_key_when_using_default_environment(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             output_dir = Path(tmp)
 
             with patch.dict(os.environ, {}, clear=True):
                 with self.assertRaisesRegex(RuntimeError, "ANTHROPIC_API_KEY"):
+                    main(
+                        ["start", "--seed", "Seed", "--output-dir", str(output_dir)],
+                        stdin=io.StringIO("q\n"),
+                        stdout=io.StringIO(),
+                    )
+
+            self.assertEqual(list(output_dir.iterdir()), [])
+
+    def test_start_requires_openai_api_key_when_using_default_environment(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+
+            with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-anthropic-key"}, clear=True):
+                with self.assertRaisesRegex(RuntimeError, "OPENAI_API_KEY"):
                     main(
                         ["start", "--seed", "Seed", "--output-dir", str(output_dir)],
                         stdin=io.StringIO("q\n"),
