@@ -48,7 +48,7 @@ class SessionRunner:
             seed_instruction=seed_instruction,
             history=self._read_turn_history(session_dir),
         )
-        self._write_turn(session_dir, "interviewer", 1, opening)
+        self._write_interviewer_turn(session_dir, 1, opening)
 
         interviewer_turn = 1
         speaker_turn = 0
@@ -65,7 +65,7 @@ class SessionRunner:
                 continue
 
             if normalized == "a":
-                self._environment.player.play(b"")
+                self._environment.player.play(self._read_latest_interviewer_audio(session_dir))
                 continue
 
             if normalized == "t":
@@ -85,7 +85,7 @@ class SessionRunner:
                     seed_instruction=seed_instruction,
                     history=self._read_turn_history(session_dir),
                 )
-                self._write_turn(session_dir, "interviewer", interviewer_turn, next_turn)
+                self._write_interviewer_turn(session_dir, interviewer_turn, next_turn)
                 continue
 
             if normalized == "q":
@@ -112,9 +112,19 @@ class SessionRunner:
         filename = f"{speaker}_{turn_number:03d}.txt"
         (session_dir / filename).write_text(text + "\n", encoding="utf-8")
 
+    def _write_interviewer_turn(self, session_dir: Path, turn_number: int, text: str) -> None:
+        self._write_turn(session_dir, "interviewer", turn_number, text)
+        audio = self._environment.tts.synthesize(text)
+        (session_dir / f"interviewer_{turn_number:03d}.wav").write_bytes(audio)
+        self._environment.player.play(audio)
+
     def _read_latest_interviewer_turn(self, session_dir: Path) -> str:
         interviewer_files = sorted(session_dir.glob("interviewer_*.txt"))
         return interviewer_files[-1].read_text(encoding="utf-8").strip()
+
+    def _read_latest_interviewer_audio(self, session_dir: Path) -> bytes:
+        interviewer_files = sorted(session_dir.glob("interviewer_*.wav"))
+        return interviewer_files[-1].read_bytes()
 
     def _read_turn_history(self, session_dir: Path) -> list[str]:
         turn_files = sorted(session_dir.glob("*.txt"))

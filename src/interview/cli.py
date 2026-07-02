@@ -15,6 +15,7 @@ def build_parser() -> argparse.ArgumentParser:
     start_parser = subparsers.add_parser("start")
     start_parser.add_argument("--seed")
     start_parser.add_argument("--seed-file", type=Path)
+    start_parser.add_argument("--voice", default="alloy")
     start_parser.add_argument("--output-dir", type=Path, default=Path.cwd())
 
     return parser
@@ -34,7 +35,7 @@ def main(argv: list[str] | None = None, *, environment: Environment | None = Non
     if args.seed_file is not None:
         seed_instruction = args.seed_file.read_text(encoding="utf-8")
 
-    runtime_environment = environment or Environment.build_anthropic()
+    runtime_environment = environment or Environment.build_anthropic(voice=args.voice)
     runner = SessionRunner(
         environment=runtime_environment,
         stdin=stdin or sys.stdin,

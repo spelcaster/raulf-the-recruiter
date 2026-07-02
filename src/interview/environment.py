@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from typing import Protocol
 
 from interview.anthropic_llm import AnthropicLLM
 from interview.fake_llm import FakeLLM
@@ -11,15 +12,40 @@ from interview.fake_tts import FakeTTS
 from interview.llm import LLM
 
 
+class TTS(Protocol):
+    name: str
+    voice: str
+
+    def synthesize(self, text: str) -> bytes: ...
+
+
+class STT(Protocol):
+    name: str
+
+    def transcribe(self, recording: bytes) -> str: ...
+
+
+class Recorder(Protocol):
+    name: str
+
+    def record(self) -> bytes: ...
+
+
+class Player(Protocol):
+    name: str
+
+    def play(self, audio: bytes) -> None: ...
+
+
 class Environment:
     def __init__(
         self,
         *,
         llm: LLM,
-        tts: FakeTTS,
-        stt: FakeSTT,
-        recorder: FakeRecorder,
-        player: FakePlayer,
+        tts: TTS,
+        stt: STT,
+        recorder: Recorder,
+        player: Player,
     ) -> None:
         self.llm = llm
         self.tts = tts
@@ -34,25 +60,32 @@ class Environment:
         llm_responses: list[str],
         transcripts: list[str],
         recordings: list[bytes] | None = None,
+        voice: str = "fake-voice",
     ) -> "Environment":
         return cls(
             llm=FakeLLM(llm_responses),
-            tts=FakeTTS(),
+            tts=FakeTTS(voice=voice),
             stt=FakeSTT(transcripts),
             recorder=FakeRecorder(recordings),
             player=FakePlayer(),
         )
 
     @classmethod
-    def build_anthropic(cls) -> "Environment":
+    def build_anthropic(cls, *, voice: str) -> "Environment":
         api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY must be set before starting a session")
+        openai_api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+        if not openai_api_key:
+            raise RuntimeError("OPENAI_API_KEY must be set before starting a session")
+
+        from interview.openai_tts import OpenAITTS
+        from interview.sounddevice_player import SoundDevicePlayer
 
         return cls(
             llm=AnthropicLLM(api_key),
-            tts=FakeTTS(),
+            tts=OpenAITTS(openai_api_key, voice=voice),
             stt=FakeSTT(["Example transcript"]),
             recorder=FakeRecorder(),
-            player=FakePlayer(),
+            player=SoundDevicePlayer(),
         )
