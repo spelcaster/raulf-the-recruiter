@@ -44,13 +44,11 @@ class SessionRunner:
         )
         self._write_metadata(session_dir, metadata)
 
-        history: list[str] = []
         opening = self._environment.llm.next_turn(
             seed_instruction=seed_instruction,
-            history=history,
+            history=self._read_turn_history(session_dir),
         )
         self._write_turn(session_dir, "interviewer", 1, opening)
-        history.append(opening)
 
         interviewer_turn = 1
         speaker_turn = 0
@@ -82,14 +80,12 @@ class SessionRunner:
 
                 speaker_turn += 1
                 self._write_turn(session_dir, "speaker", speaker_turn, transcript)
-                history.append(transcript)
                 interviewer_turn += 1
                 next_turn = self._environment.llm.next_turn(
                     seed_instruction=seed_instruction,
-                    history=history,
+                    history=self._read_turn_history(session_dir),
                 )
                 self._write_turn(session_dir, "interviewer", interviewer_turn, next_turn)
-                history.append(next_turn)
                 continue
 
             if normalized == "q":
@@ -120,3 +116,6 @@ class SessionRunner:
         interviewer_files = sorted(session_dir.glob("interviewer_*.txt"))
         return interviewer_files[-1].read_text(encoding="utf-8").strip()
 
+    def _read_turn_history(self, session_dir: Path) -> list[str]:
+        turn_files = sorted(session_dir.glob("*.txt"))
+        return [path.read_text(encoding="utf-8").strip() for path in turn_files]
