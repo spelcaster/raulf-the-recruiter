@@ -31,6 +31,21 @@ class _RecordingTTS:
         return f"WAV:{text}".encode("utf-8")
 
 
+class _RecordingRecorder:
+    def __init__(self, recording: bytes) -> None:
+        self.name = "recording-recorder"
+        self.recording = recording
+        self.calls: list[dict[str, int]] = []
+
+    def record(self, *, stop_requested, max_duration_seconds: int) -> bytes:
+        self.calls.append({"max_duration_seconds": max_duration_seconds})
+        self.assert_stop_requested(stop_requested)
+        return self.recording
+
+    def assert_stop_requested(self, stop_requested) -> None:
+        assert stop_requested() is True
+
+
 class SessionRunnerLLMContractTests(unittest.TestCase):
     def test_rebuilds_seed_and_history_for_each_llm_turn(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -40,7 +55,7 @@ class SessionRunnerLLMContractTests(unittest.TestCase):
             )
             runner = SessionRunner(
                 environment=environment,
-                stdin=io.StringIO("t\na\nq\n"),
+                stdin=io.StringIO("t\n\n\nq\n"),
                 stdout=io.StringIO(),
                 output_dir=Path(tmp),
             )
@@ -71,7 +86,7 @@ class SessionRunnerLLMContractTests(unittest.TestCase):
             )
             runner = SessionRunner(
                 environment=environment,
-                stdin=io.StringIO("a\nt\na\na\nq\n"),
+                stdin=io.StringIO("a\nt\n\n\na\nq\n"),
                 stdout=io.StringIO(),
                 output_dir=output_dir,
             )
@@ -119,6 +134,33 @@ class SessionRunnerLLMContractTests(unittest.TestCase):
             session_dir = next(output_dir.iterdir())
             self.assertEqual(environment.tts.calls, ["Opening question"])
             self.assertEqual((session_dir / "interviewer_001.wav").read_bytes(), b"WAV:Opening question")
+
+    def test_accept_persists_speaker_audio_and_uses_six_minute_cap(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+            environment = Environment.build_fake(
+                llm_responses=["Opening question", "Follow-up question"],
+                transcripts=["Accepted answer"],
+                recordings=[b"speaker-audio"],
+            )
+            environment.recorder = _RecordingRecorder(b"speaker-audio")
+            runner = SessionRunner(
+                environment=environment,
+                stdin=io.StringIO("t\n\n\nq\n"),
+                stdout=io.StringIO(),
+                output_dir=output_dir,
+            )
+
+            exit_code = runner.start(seed_instruction="Seed")
+
+            self.assertEqual(exit_code, 0)
+            session_dir = next(output_dir.iterdir())
+            self.assertEqual((session_dir / "speaker_001.txt").read_text(encoding="utf-8").strip(), "Accepted answer")
+            self.assertEqual((session_dir / "speaker_001.wav").read_bytes(), b"speaker-audio")
+            self.assertEqual(
+                environment.recorder.calls,
+                [{"max_duration_seconds": 6 * 60}],
+            )
 
 
 if __name__ == "__main__":

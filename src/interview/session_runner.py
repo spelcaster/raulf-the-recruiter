@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import io
 import json
+import select
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
 from interview.environment import Environment
 from interview.session_metadata import SessionMetadata
+
+
+MAX_RECORDING_SECONDS = 6 * 60
 
 
 class SessionRunner:
@@ -69,17 +74,21 @@ class SessionRunner:
                 continue
 
             if normalized == "t":
-                recording = self._environment.recorder.record()
+                self._stdout.write("Recording... Press Enter to stop.\n")
+                recording = self._environment.recorder.record(
+                    stop_requested=self._stop_requested,
+                    max_duration_seconds=MAX_RECORDING_SECONDS,
+                )
                 transcript = self._environment.stt.transcribe(recording)
                 self._stdout.write(f"Transcript: {transcript}\n")
-                decision = self._prompt("Accept or redo? [a/r]")
+                decision = self._prompt("Press Enter to accept or r to redo")
                 if decision is None:
                     return 0
-                if decision.strip().lower() != "a":
+                if decision.strip().lower() == "r":
                     continue
 
                 speaker_turn += 1
-                self._write_turn(session_dir, "speaker", speaker_turn, transcript)
+                self._write_speaker_turn(session_dir, speaker_turn, transcript, recording)
                 interviewer_turn += 1
                 next_turn = self._environment.llm.next_turn(
                     seed_instruction=seed_instruction,
@@ -118,6 +127,10 @@ class SessionRunner:
         (session_dir / f"interviewer_{turn_number:03d}.wav").write_bytes(audio)
         self._environment.player.play(audio)
 
+    def _write_speaker_turn(self, session_dir: Path, turn_number: int, text: str, audio: bytes) -> None:
+        self._write_turn(session_dir, "speaker", turn_number, text)
+        (session_dir / f"speaker_{turn_number:03d}.wav").write_bytes(audio)
+
     def _read_latest_interviewer_turn(self, session_dir: Path) -> str:
         interviewer_files = sorted(session_dir.glob("interviewer_*.txt"))
         return interviewer_files[-1].read_text(encoding="utf-8").strip()
@@ -129,3 +142,29 @@ class SessionRunner:
     def _read_turn_history(self, session_dir: Path) -> list[str]:
         turn_files = sorted(session_dir.glob("*.txt"))
         return [path.read_text(encoding="utf-8").strip() for path in turn_files]
+
+    def _stop_requested(self) -> bool:
+        if not self._stdin_has_data(timeout_seconds=0.05):
+            return False
+        self._stdin.readline()
+        return True
+
+    def _stdin_has_data(self, *, timeout_seconds: float) -> bool:
+        try:
+            stream = self._stdin
+            fileno = stream.fileno()
+        except (AttributeError, io.UnsupportedOperation, ValueError):
+            fileno = None
+
+        if fileno is not None:
+            readable, _, _ = select.select([stream], [], [], timeout_seconds)
+            return bool(readable)
+
+        if hasattr(self._stdin, "tell") and hasattr(self._stdin, "seek"):
+            position = self._stdin.tell()
+            self._stdin.seek(0, 2)
+            end = self._stdin.tell()
+            self._stdin.seek(position)
+            return position < end
+
+        return False
