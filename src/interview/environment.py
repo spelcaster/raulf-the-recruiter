@@ -1,17 +1,21 @@
 from __future__ import annotations
 
+import os
+
+from interview.anthropic_llm import AnthropicLLM
 from interview.fake_llm import FakeLLM
 from interview.fake_player import FakePlayer
 from interview.fake_recorder import FakeRecorder
 from interview.fake_stt import FakeSTT
 from interview.fake_tts import FakeTTS
+from interview.llm import LLM
 
 
 class Environment:
     def __init__(
         self,
         *,
-        llm: FakeLLM,
+        llm: LLM,
         tts: FakeTTS,
         stt: FakeSTT,
         recorder: FakeRecorder,
@@ -39,3 +43,16 @@ class Environment:
             player=FakePlayer(),
         )
 
+    @classmethod
+    def build_anthropic(cls) -> "Environment":
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError("ANTHROPIC_API_KEY must be set before starting a session")
+
+        return cls(
+            llm=AnthropicLLM(api_key),
+            tts=FakeTTS(),
+            stt=FakeSTT(["Example transcript"]),
+            recorder=FakeRecorder(),
+            player=FakePlayer(),
+        )

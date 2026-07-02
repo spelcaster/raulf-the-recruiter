@@ -34,10 +34,7 @@ def main(argv: list[str] | None = None, *, environment: Environment | None = Non
     if args.seed_file is not None:
         seed_instruction = args.seed_file.read_text(encoding="utf-8")
 
-    runtime_environment = environment or Environment.build_fake(
-        llm_responses=["Opening prompt", "Follow-up prompt"],
-        transcripts=["Example transcript"],
-    )
+    runtime_environment = environment or Environment.build_anthropic()
     runner = SessionRunner(
         environment=runtime_environment,
         stdin=stdin or sys.stdin,
@@ -49,4 +46,3 @@ def main(argv: list[str] | None = None, *, environment: Environment | None = Non
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

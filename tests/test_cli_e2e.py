@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -133,6 +135,20 @@ class CliEndToEndTests(unittest.TestCase):
             metadata = json.loads((session_dir / "metadata.json").read_text(encoding="utf-8"))
             self.assertEqual(metadata["seed_instruction"], "Seed from file")
             self.assertTrue(metadata["ended_cleanly"])
+
+    def test_start_requires_anthropic_api_key_when_using_default_environment(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+
+            with patch.dict(os.environ, {}, clear=True):
+                with self.assertRaisesRegex(RuntimeError, "ANTHROPIC_API_KEY"):
+                    main(
+                        ["start", "--seed", "Seed", "--output-dir", str(output_dir)],
+                        stdin=io.StringIO("q\n"),
+                        stdout=io.StringIO(),
+                    )
+
+            self.assertEqual(list(output_dir.iterdir()), [])
 
     def _only_session_dir(self, output_dir: Path) -> Path:
         session_dirs = [path for path in output_dir.iterdir() if path.is_dir()]
