@@ -1,2 +1,6 @@
 AGENTS.override.md
 CLAUDE.local.md
+__pycache__/
+.pytest_cache/
+.venv/
+dist/
