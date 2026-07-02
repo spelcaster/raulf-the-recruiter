@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Protocol
+from typing import Callable, Protocol
 
 from interview.anthropic_llm import AnthropicLLM
 from interview.fake_llm import FakeLLM
@@ -28,7 +28,7 @@ class STT(Protocol):
 class Recorder(Protocol):
     name: str
 
-    def record(self) -> bytes: ...
+    def record(self, *, stop_requested: Callable[[], bool], max_duration_seconds: int) -> bytes: ...
 
 
 class Player(Protocol):
@@ -79,13 +79,15 @@ class Environment:
         if not openai_api_key:
             raise RuntimeError("OPENAI_API_KEY must be set before starting a session")
 
+        from interview.openai_stt import OpenAISTT
         from interview.openai_tts import OpenAITTS
         from interview.sounddevice_player import SoundDevicePlayer
+        from interview.sounddevice_recorder import SoundDeviceRecorder
 
         return cls(
             llm=AnthropicLLM(api_key),
             tts=OpenAITTS(openai_api_key, voice=voice),
-            stt=FakeSTT(["Example transcript"]),
-            recorder=FakeRecorder(),
+            stt=OpenAISTT(openai_api_key),
+            recorder=SoundDeviceRecorder(),
             player=SoundDevicePlayer(),
         )

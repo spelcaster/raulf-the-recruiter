@@ -75,7 +75,7 @@ class CliEndToEndTests(unittest.TestCase):
                     llm_responses=["Opening question", "Second question"],
                     transcripts=["Accepted answer"],
                 ),
-                stdin=io.StringIO("r\nt\na\nr\nq\n"),
+                stdin=io.StringIO("r\nt\n\n\nr\nq\n"),
                 stdout=stdout,
             )
 
@@ -102,13 +102,14 @@ class CliEndToEndTests(unittest.TestCase):
                     llm_responses=["Opening question"],
                     transcripts=["Discarded answer"],
                 ),
-                stdin=io.StringIO("t\nr\nq\n"),
+                stdin=io.StringIO("t\n\nr\nq\n"),
                 stdout=io.StringIO(),
             )
 
             self.assertEqual(exit_code, 0)
             session_dir = self._only_session_dir(output_dir)
             self.assertFalse((session_dir / "speaker_001.txt").exists())
+            self.assertFalse((session_dir / "speaker_001.wav").exists())
             self.assertEqual(
                 sorted(path.name for path in session_dir.glob("*.txt")),
                 ["interviewer_001.txt"],
