@@ -17,6 +17,7 @@ def build_parser() -> argparse.ArgumentParser:
     start_parser.add_argument("--seed")
     start_parser.add_argument("--seed-file", type=Path)
     start_parser.add_argument("--voice", default="alloy")
+    start_parser.add_argument("--interviewer-name", default="Raulf")
     start_parser.add_argument("--output-dir", type=Path, default=Path("sessions"))
 
     evaluate_parser = subparsers.add_parser("evaluate")
@@ -53,12 +54,16 @@ def main(argv: list[str] | None = None, *, environment: Environment | None = Non
     if args.seed_file is not None:
         seed_instruction = args.seed_file.read_text(encoding="utf-8")
 
-    runtime_environment = environment or Environment.build_anthropic(voice=args.voice)
+    runtime_environment = environment or Environment.build_anthropic(
+        voice=args.voice,
+        interviewer_name=args.interviewer_name,
+    )
     runner = SessionRunner(
         environment=runtime_environment,
         stdin=stdin or sys.stdin,
         stdout=stdout or sys.stdout,
         output_dir=args.output_dir,
+        interviewer_name=args.interviewer_name,
     )
     return runner.start(seed_instruction=seed_instruction)
 

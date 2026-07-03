@@ -8,11 +8,19 @@ from anthropic import Anthropic
 MODEL_NAME = "claude-opus-4-8"
 MAX_TOKENS = 512
 OPENING_PROMPT = "Begin the interview now with your opening question."
+DEFAULT_INTERVIEWER_NAME = "Raulf"
 
 
 class AnthropicLLM:
-    def __init__(self, api_key: str, *, client: Anthropic | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        interviewer_name: str = DEFAULT_INTERVIEWER_NAME,
+        client: Anthropic | None = None,
+    ) -> None:
         self.name = MODEL_NAME
+        self._interviewer_name = interviewer_name
         self._client = client or Anthropic(api_key=api_key)
 
     def next_turn(self, *, seed_instruction: str, history: list[str]) -> str:
@@ -32,7 +40,7 @@ class AnthropicLLM:
 
     def _system_prompt(self, seed_instruction: str) -> str:
         return (
-            "You are the Interviewer in an English-language mock interview.\n"
+            f"You are {self._interviewer_name}, the Interviewer in an English-language mock interview.\n"
             "Use the Seed Instruction below as the scenario and constraints for the interview.\n"
             "Conduct the interview in English even if the Seed Instruction is written in another language.\n"
             "Stay in character as the interviewer.\n"

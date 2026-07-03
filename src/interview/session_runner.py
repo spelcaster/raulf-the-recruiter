@@ -23,11 +23,13 @@ class SessionRunner:
         stdout,
         stdin,
         output_dir: Path,
+        interviewer_name: str = "Raulf",
     ) -> None:
         self._environment = environment
         self._stdout = stdout
         self._stdin = stdin
         self._output_dir = output_dir
+        self._interviewer_name = interviewer_name
 
     def start(self, *, seed_instruction: str) -> int:
         session_id = uuid4().hex
@@ -39,6 +41,7 @@ class SessionRunner:
             id=session_id,
             created_at=datetime.now(UTC).isoformat(),
             seed_instruction=seed_instruction,
+            interviewer_name=self._interviewer_name,
             voice=self._environment.tts.voice,
             providers={
                 "llm": self._environment.llm.name,
@@ -51,7 +54,7 @@ class SessionRunner:
         )
         self._write_metadata(session_dir, metadata)
 
-        self._status("Interviewer is preparing the opening question...")
+        self._status(f"{self._interviewer_name} is preparing the opening question...")
         opening = self._environment.llm.next_turn(
             seed_instruction=seed_instruction,
             history=self._read_turn_history(session_dir),
@@ -96,7 +99,7 @@ class SessionRunner:
                 speaker_turn += 1
                 self._write_speaker_turn(session_dir, speaker_turn, transcript, recording)
                 interviewer_turn += 1
-                self._status("Interviewer is preparing the next question...")
+                self._status(f"{self._interviewer_name} is preparing the next question...")
                 next_turn = self._environment.llm.next_turn(
                     seed_instruction=seed_instruction,
                     history=self._read_turn_history(session_dir),
@@ -156,7 +159,7 @@ class SessionRunner:
 
     def _write_interviewer_turn(self, session_dir: Path, turn_number: int, text: str) -> None:
         self._write_turn(session_dir, "interviewer", turn_number, text)
-        self._status(f"\nInterviewer: {text}\n")
+        self._status(f"\n{self._interviewer_name}: {text}\n")
         self._status("Synthesizing the question audio...")
         audio = self._environment.tts.synthesize(text)
         (session_dir / f"interviewer_{turn_number:03d}.wav").write_bytes(audio)

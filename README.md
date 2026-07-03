@@ -39,6 +39,7 @@ uv run interview start --seed-file ./seeds/backend.md
 
 Options:
 
+- `--interviewer-name NAME` — what the Interviewer is called, on screen and in character (default: `Raulf`)
 - `--voice NAME` — TTS voice (default: `alloy`)
 - `--output-dir DIR` — where session directories are created (default: `sessions`)
 
@@ -82,7 +83,7 @@ Each session gets its own directory named by a unique ID:
 
 ```
 <output-dir>/<session-id>/
-  metadata.json        # seed instruction, voice, providers, ended_cleanly
+  metadata.json        # seed instruction, interviewer name, voice, providers, ended_cleanly
   interviewer_001.txt  # Interviewer turn text
   interviewer_001.wav  # its TTS audio
   speaker_001.txt      # accepted transcript

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from typing import Callable, Protocol
 
-from interview.anthropic_llm import AnthropicLLM
+from interview.anthropic_llm import DEFAULT_INTERVIEWER_NAME, AnthropicLLM
 from interview.fake_llm import FakeLLM
 from interview.fake_player import FakePlayer
 from interview.fake_recorder import FakeRecorder
@@ -79,7 +79,7 @@ class Environment:
         return AnthropicLLM(api_key)
 
     @classmethod
-    def build_anthropic(cls, *, voice: str) -> "Environment":
+    def build_anthropic(cls, *, voice: str, interviewer_name: str = DEFAULT_INTERVIEWER_NAME) -> "Environment":
         api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY must be set before starting a session")
@@ -93,7 +93,7 @@ class Environment:
         from interview.sounddevice_recorder import SoundDeviceRecorder
 
         return cls(
-            llm=AnthropicLLM(api_key),
+            llm=AnthropicLLM(api_key, interviewer_name=interviewer_name),
             tts=OpenAITTS(openai_api_key, voice=voice),
             stt=OpenAISTT(openai_api_key),
             recorder=SoundDeviceRecorder(),

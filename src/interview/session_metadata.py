@@ -8,6 +8,7 @@ class SessionMetadata:
     id: str
     created_at: str
     seed_instruction: str
+    interviewer_name: str
     voice: str
     providers: dict[str, str]
     ended_cleanly: bool
