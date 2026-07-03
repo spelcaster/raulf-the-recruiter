@@ -33,6 +33,7 @@ class SessionRunner:
         session_id = uuid4().hex
         session_dir = self._output_dir / session_id
         session_dir.mkdir(parents=True, exist_ok=False)
+        self._status(f"Session {session_id} started. Files will be saved to {session_dir}.")
 
         metadata = SessionMetadata(
             id=session_id,
@@ -50,6 +51,7 @@ class SessionRunner:
         )
         self._write_metadata(session_dir, metadata)
 
+        self._status("Interviewer is preparing the opening question...")
         opening = self._environment.llm.next_turn(
             seed_instruction=seed_instruction,
             history=self._read_turn_history(session_dir),
@@ -59,6 +61,7 @@ class SessionRunner:
         interviewer_turn = 1
         speaker_turn = 0
 
+        self._print_menu()
         while True:
             command = self._prompt("(r)ead, (t)alk, (a)udio, (q)uit")
             if command is None:
@@ -71,17 +74,19 @@ class SessionRunner:
                 continue
 
             if normalized == "a":
+                self._status("Replaying the latest question audio...")
                 self._environment.player.play(self._read_latest_interviewer_audio(session_dir))
                 continue
 
             if normalized == "t":
-                self._stdout.write("Recording... Press Enter to stop.\n")
+                self._status("Recording... Press Enter to stop.")
                 recording = self._environment.recorder.record(
                     stop_requested=self._stop_requested,
                     max_duration_seconds=MAX_RECORDING_SECONDS,
                 )
+                self._status("Transcribing your answer...")
                 transcript = self._environment.stt.transcribe(recording)
-                self._stdout.write(f"Transcript: {transcript}\n")
+                self._status(f"Transcript: {transcript}")
                 decision = self._prompt("Press Enter to accept or r to redo")
                 if decision is None:
                     return 0
@@ -91,27 +96,53 @@ class SessionRunner:
                 speaker_turn += 1
                 self._write_speaker_turn(session_dir, speaker_turn, transcript, recording)
                 interviewer_turn += 1
+                self._status("Interviewer is preparing the next question...")
                 next_turn = self._environment.llm.next_turn(
                     seed_instruction=seed_instruction,
                     history=self._read_turn_history(session_dir),
                 )
                 self._write_interviewer_turn(session_dir, interviewer_turn, next_turn)
+                self._print_menu()
                 continue
 
             if normalized == "q":
                 metadata.ended_cleanly = True
                 self._write_metadata(session_dir, metadata)
-                write_evaluation(session_dir, llm=self._environment.llm)
+                self._status("Evaluating the session... This may take a moment.")
+                evaluation_path = write_evaluation(session_dir, llm=self._environment.llm)
+                self._status(f"Evaluation saved to {evaluation_path}.")
                 return 0
 
-            self._stdout.write("Unknown command\n")
+            self._status("Unknown command")
+            self._print_menu()
 
     def _prompt(self, label: str) -> str | None:
         self._stdout.write(f"{label}: ")
+        self._flush()
         line = self._stdin.readline()
         if line == "":
             return None
         return line.rstrip("\n")
+
+    def _status(self, message: str) -> None:
+        self._stdout.write(f"{message}\n")
+        self._flush()
+
+    def _print_menu(self) -> None:
+        self._stdout.write(
+            "\n"
+            "Commands:\n"
+            "  r  show the latest question as text\n"
+            "  t  record your answer (Enter stops the recording)\n"
+            "  a  replay the latest question audio\n"
+            "  q  end the session and generate the evaluation\n"
+        )
+        self._flush()
+
+    def _flush(self) -> None:
+        flush = getattr(self._stdout, "flush", None)
+        if flush is not None:
+            flush()
 
     def _write_metadata(self, session_dir: Path, metadata: SessionMetadata) -> None:
         (session_dir / "metadata.json").write_text(
@@ -125,8 +156,11 @@ class SessionRunner:
 
     def _write_interviewer_turn(self, session_dir: Path, turn_number: int, text: str) -> None:
         self._write_turn(session_dir, "interviewer", turn_number, text)
+        self._status(f"\nInterviewer: {text}\n")
+        self._status("Synthesizing the question audio...")
         audio = self._environment.tts.synthesize(text)
         (session_dir / f"interviewer_{turn_number:03d}.wav").write_bytes(audio)
+        self._status("Playing the question...")
         self._environment.player.play(audio)
 
     def _write_speaker_turn(self, session_dir: Path, turn_number: int, text: str, audio: bytes) -> None:

@@ -36,7 +36,11 @@ def main(argv: list[str] | None = None, *, environment: Environment | None = Non
             parser.error("exactly one of <session-id> or --last is required")
         session_dir = _resolve_session_dir(args.output_dir, session_id=args.session_id, use_last=args.last)
         llm = environment.llm if environment is not None else Environment.build_anthropic_llm()
-        write_evaluation(session_dir, llm=llm)
+        out = stdout or sys.stdout
+        out.write(f"Evaluating session {session_dir.name}... This may take a moment.\n")
+        out.flush()
+        evaluation_path = write_evaluation(session_dir, llm=llm)
+        out.write(f"Evaluation saved to {evaluation_path}.\n")
         return 0
 
     if args.command != "start":
