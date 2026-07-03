@@ -8,3 +8,6 @@ class LLM(Protocol):
 
     def next_turn(self, *, seed_instruction: str, history: list[str]) -> str:
         """Return the next interviewer utterance for the current session."""
+
+    def evaluate_session(self, *, prompt: str) -> str:
+        """Return qualitative markdown feedback for a completed session."""

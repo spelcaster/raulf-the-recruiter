@@ -16,6 +16,103 @@ from interview.environment import Environment
 
 
 class CliEndToEndTests(unittest.TestCase):
+    def test_evaluate_last_rebuilds_session_transcript_and_saves_markdown(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+            session_dir = self._write_session_fixture(
+                output_dir,
+                ended_cleanly=False,
+                seed_instruction="Interview me for a backend role",
+                turns=[
+                    ("interviewer", 1, "Tell me about yourself."),
+                    ("speaker", 1, "I work with Python and distributed systems."),
+                    ("interviewer", 2, "Describe a production incident."),
+                    ("speaker", 2, "I traced a queue backlog to a bad retry policy."),
+                ],
+            )
+            environment = Environment.build_fake(
+                llm_responses=[],
+                transcripts=[],
+                evaluation_responses=[
+                    "# Language\nCEFR: B2\n\n# Content\nStrongest answer: the incident example.\n\n# Overall\nPractice articles and filler words."
+                ],
+            )
+
+            exit_code = main(
+                ["evaluate", "--last", "--output-dir", str(output_dir)],
+                environment=environment,
+                stdin=io.StringIO(),
+                stdout=io.StringIO(),
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(
+                (session_dir / "evaluation.md").read_text(encoding="utf-8"),
+                "# Language\nCEFR: B2\n\n# Content\nStrongest answer: the incident example.\n\n# Overall\nPractice articles and filler words.\n",
+            )
+            self.assertEqual(len(environment.llm.evaluation_calls), 1)
+            prompt = environment.llm.evaluation_calls[0]["prompt"]
+            self.assertIn("Seed Instruction:\nInterview me for a backend role", prompt)
+            self.assertIn("speech recognition", prompt)
+            self.assertIn("STT artifacts", prompt)
+            self.assertIn("Interviewer 1: Tell me about yourself.", prompt)
+            self.assertIn("Speaker 1: I work with Python and distributed systems.", prompt)
+            self.assertIn("Interviewer 2: Describe a production incident.", prompt)
+            self.assertIn("Speaker 2: I traced a queue backlog to a bad retry policy.", prompt)
+
+    def test_evaluate_by_session_id_works_for_unclean_session(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+            session_dir = self._write_session_fixture(
+                output_dir,
+                ended_cleanly=False,
+                seed_instruction="Backend interview",
+                turns=[
+                    ("interviewer", 1, "What did you deploy recently?"),
+                    ("speaker", 1, "A queue consumer with retries."),
+                ],
+            )
+            environment = Environment.build_fake(
+                llm_responses=[],
+                transcripts=[],
+                evaluation_responses=["# Language\n...\n\n# Content\n...\n\n# Overall\n..."],
+            )
+
+            exit_code = main(
+                ["evaluate", "session-001", "--output-dir", str(output_dir)],
+                environment=environment,
+                stdin=io.StringIO(),
+                stdout=io.StringIO(),
+            )
+
+            self.assertEqual(exit_code, 0)
+            self.assertTrue((session_dir / "evaluation.md").exists())
+            self.assertEqual(len(environment.llm.evaluation_calls), 1)
+
+    def test_start_quit_writes_evaluation_after_marking_session_clean(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+
+            exit_code = main(
+                ["start", "--seed", "Seed", "--output-dir", str(output_dir)],
+                environment=Environment.build_fake(
+                    llm_responses=["Opening question"],
+                    transcripts=[],
+                    evaluation_responses=["# Language\n...\n\n# Content\n...\n\n# Overall\n..."],
+                ),
+                stdin=io.StringIO("q\n"),
+                stdout=io.StringIO(),
+            )
+
+            self.assertEqual(exit_code, 0)
+            session_dir = self._only_session_dir(output_dir)
+            metadata = json.loads((session_dir / "metadata.json").read_text(encoding="utf-8"))
+            self.assertTrue(metadata["ended_cleanly"])
+            self.assertEqual(
+                (session_dir / "evaluation.md").read_text(encoding="utf-8"),
+                "# Language\n...\n\n# Content\n...\n\n# Overall\n...\n",
+            )
+
     def test_start_requires_exactly_one_seed_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             output_dir = Path(tmp)
@@ -215,6 +312,41 @@ class CliEndToEndTests(unittest.TestCase):
         session_dirs = [path for path in output_dir.iterdir() if path.is_dir()]
         self.assertEqual(len(session_dirs), 1)
         return session_dirs[0]
+
+    def _write_session_fixture(
+        self,
+        output_dir: Path,
+        *,
+        ended_cleanly: bool,
+        seed_instruction: str,
+        turns: list[tuple[str, int, str]],
+    ) -> Path:
+        session_dir = output_dir / "session-001"
+        session_dir.mkdir()
+        (session_dir / "metadata.json").write_text(
+            json.dumps(
+                {
+                    "id": "session-001",
+                    "created_at": "2026-07-01T12:00:00+00:00",
+                    "seed_instruction": seed_instruction,
+                    "voice": "fake-voice",
+                    "providers": {
+                        "llm": "fake-llm",
+                        "tts": "fake-tts",
+                        "stt": "fake-stt",
+                        "recorder": "fake-recorder",
+                        "player": "fake-player",
+                    },
+                    "ended_cleanly": ended_cleanly,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        for speaker, turn_number, text in turns:
+            (session_dir / f"{speaker}_{turn_number:03d}.txt").write_text(text + "\n", encoding="utf-8")
+        return session_dir
 
 
 if __name__ == "__main__":

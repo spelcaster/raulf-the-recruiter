@@ -71,6 +71,31 @@ class AnthropicLLMTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "did not include any text content"):
             llm.next_turn(seed_instruction="Seed", history=[])
 
+    def test_evaluate_session_sends_prompt_as_user_message(self) -> None:
+        client = _RecordingAnthropicClient("# Language\n...")
+        llm = AnthropicLLM("test-key", client=client)
+
+        reply = llm.evaluate_session(prompt="Seed Instruction:\nSeed\n\nTranscript:\nInterviewer 1: Hello")
+
+        self.assertEqual(reply, "# Language\n...")
+        self.assertEqual(
+            client.messages.calls[0],
+            {
+                "model": MODEL_NAME,
+                "max_tokens": 512,
+                "system": (
+                    "You are an English coach evaluating a completed mock interview.\n"
+                    "Follow the user's requested markdown structure exactly and keep the feedback qualitative."
+                ),
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "Seed Instruction:\nSeed\n\nTranscript:\nInterviewer 1: Hello",
+                    }
+                ],
+            },
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

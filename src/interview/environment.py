@@ -59,16 +59,24 @@ class Environment:
         *,
         llm_responses: list[str],
         transcripts: list[str],
+        evaluation_responses: list[str] | None = None,
         recordings: list[bytes] | None = None,
         voice: str = "fake-voice",
     ) -> "Environment":
         return cls(
-            llm=FakeLLM(llm_responses),
+            llm=FakeLLM(llm_responses, evaluation_responses=evaluation_responses),
             tts=FakeTTS(voice=voice),
             stt=FakeSTT(transcripts),
             recorder=FakeRecorder(recordings),
             player=FakePlayer(),
         )
+
+    @classmethod
+    def build_anthropic_llm(cls) -> LLM:
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError("ANTHROPIC_API_KEY must be set before evaluating a session")
+        return AnthropicLLM(api_key)
 
     @classmethod
     def build_anthropic(cls, *, voice: str) -> "Environment":
