@@ -165,9 +165,12 @@ class CliEndToEndTests(unittest.TestCase):
             session_dir = self._only_session_dir(output_dir)
             metadata = json.loads((session_dir / "metadata.json").read_text(encoding="utf-8"))
             self.assertEqual(metadata["seed_instruction"], "Be strict")
+            self.assertEqual(metadata["interviewer_name"], "Raulf")
             self.assertEqual(metadata["voice"], "fake-voice")
             self.assertFalse(metadata["ended_cleanly"])
             self.assertEqual((session_dir / "interviewer_001.txt").read_text(encoding="utf-8").strip(), "Opening question")
+            self.assertIn("Raulf is preparing the opening question...", stdout.getvalue())
+            self.assertIn("Raulf: Opening question", stdout.getvalue())
 
     def test_scripted_session_persists_turns_and_reads_latest_interviewer_turn(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -260,7 +263,7 @@ class CliEndToEndTests(unittest.TestCase):
                 )
 
             self.assertEqual(exit_code, 0)
-            build_environment.assert_called_once_with(voice="nova")
+            build_environment.assert_called_once_with(voice="nova", interviewer_name="Raulf")
             session_dir = self._only_session_dir(output_dir)
             metadata = json.loads((session_dir / "metadata.json").read_text(encoding="utf-8"))
             self.assertEqual(metadata["voice"], "nova")
@@ -283,10 +286,40 @@ class CliEndToEndTests(unittest.TestCase):
                 )
 
             self.assertEqual(exit_code, 0)
-            build_environment.assert_called_once_with(voice="alloy")
+            build_environment.assert_called_once_with(voice="alloy", interviewer_name="Raulf")
             session_dir = self._only_session_dir(output_dir)
             metadata = json.loads((session_dir / "metadata.json").read_text(encoding="utf-8"))
             self.assertEqual(metadata["voice"], "alloy")
+
+    def test_interviewer_name_flag_renames_interviewer_in_output_and_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+            stdout = io.StringIO()
+
+            exit_code = main(
+                [
+                    "start",
+                    "--seed",
+                    "Seed",
+                    "--interviewer-name",
+                    "Sofia",
+                    "--output-dir",
+                    str(output_dir),
+                ],
+                environment=Environment.build_fake(
+                    llm_responses=["Opening question"],
+                    transcripts=[],
+                ),
+                stdin=io.StringIO("q\n"),
+                stdout=stdout,
+            )
+
+            self.assertEqual(exit_code, 0)
+            session_dir = self._only_session_dir(output_dir)
+            metadata = json.loads((session_dir / "metadata.json").read_text(encoding="utf-8"))
+            self.assertEqual(metadata["interviewer_name"], "Sofia")
+            self.assertIn("Sofia is preparing the opening question...", stdout.getvalue())
+            self.assertIn("Sofia: Opening question", stdout.getvalue())
 
     def test_start_requires_anthropic_api_key_when_using_default_environment(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -337,6 +370,7 @@ class CliEndToEndTests(unittest.TestCase):
                     "id": "session-001",
                     "created_at": "2026-07-01T12:00:00+00:00",
                     "seed_instruction": seed_instruction,
+                    "interviewer_name": "Raulf",
                     "voice": "fake-voice",
                     "providers": {
                         "llm": "fake-llm",

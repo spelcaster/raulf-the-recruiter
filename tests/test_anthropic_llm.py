@@ -43,7 +43,7 @@ class AnthropicLLMTests(unittest.TestCase):
                 "model": MODEL_NAME,
                 "max_tokens": 512,
                 "system": (
-                    "You are the Interviewer in an English-language mock interview.\n"
+                    "You are Raulf, the Interviewer in an English-language mock interview.\n"
                     "Use the Seed Instruction below as the scenario and constraints for the interview.\n"
                     "Conduct the interview in English even if the Seed Instruction is written in another language.\n"
                     "Stay in character as the interviewer.\n"
@@ -60,6 +60,15 @@ class AnthropicLLMTests(unittest.TestCase):
                 ],
             },
         )
+
+    def test_custom_interviewer_name_is_used_in_system_prompt(self) -> None:
+        client = _RecordingAnthropicClient("Interviewer reply")
+        llm = AnthropicLLM("test-key", interviewer_name="Sofia", client=client)
+
+        llm.next_turn(seed_instruction="Seed", history=[])
+
+        system = client.messages.calls[0]["system"]
+        self.assertIn("You are Sofia, the Interviewer", system)
 
     def test_sends_opening_prompt_when_history_is_empty(self) -> None:
         client = _RecordingAnthropicClient("Opening question")
