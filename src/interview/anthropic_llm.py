@@ -7,6 +7,7 @@ from anthropic import Anthropic
 
 MODEL_NAME = "claude-opus-4-8"
 MAX_TOKENS = 512
+OPENING_PROMPT = "Begin the interview now with your opening question."
 
 
 class AnthropicLLM:
@@ -41,7 +42,9 @@ class AnthropicLLM:
         )
 
     def _messages_from_history(self, history: list[str]) -> list[dict[str, str]]:
-        messages: list[dict[str, str]] = []
+        # The interviewer (assistant) speaks first, but the API requires a
+        # non-empty messages list whose first message has the user role.
+        messages: list[dict[str, str]] = [{"role": "user", "content": OPENING_PROMPT}]
         for index, turn in enumerate(history):
             role = "assistant" if index % 2 == 0 else "user"
             messages.append({"role": role, "content": turn})

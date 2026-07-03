@@ -11,11 +11,19 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from interview.cli import main
+from interview.cli import build_parser, main
 from interview.environment import Environment
 
 
 class CliEndToEndTests(unittest.TestCase):
+    def test_output_dir_defaults_to_sessions(self) -> None:
+        parser = build_parser()
+        start_args = parser.parse_args(["start", "--seed", "Seed"])
+        evaluate_args = parser.parse_args(["evaluate", "--last"])
+
+        self.assertEqual(start_args.output_dir, Path("sessions"))
+        self.assertEqual(evaluate_args.output_dir, Path("sessions"))
+
     def test_evaluate_last_rebuilds_session_transcript_and_saves_markdown(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             output_dir = Path(tmp)

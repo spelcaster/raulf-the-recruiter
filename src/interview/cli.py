@@ -17,12 +17,12 @@ def build_parser() -> argparse.ArgumentParser:
     start_parser.add_argument("--seed")
     start_parser.add_argument("--seed-file", type=Path)
     start_parser.add_argument("--voice", default="alloy")
-    start_parser.add_argument("--output-dir", type=Path, default=Path.cwd())
+    start_parser.add_argument("--output-dir", type=Path, default=Path("sessions"))
 
     evaluate_parser = subparsers.add_parser("evaluate")
     evaluate_parser.add_argument("session_id", nargs="?")
     evaluate_parser.add_argument("--last", action="store_true")
-    evaluate_parser.add_argument("--output-dir", type=Path, default=Path.cwd())
+    evaluate_parser.add_argument("--output-dir", type=Path, default=Path("sessions"))
 
     return parser
 
@@ -36,7 +36,11 @@ def main(argv: list[str] | None = None, *, environment: Environment | None = Non
             parser.error("exactly one of <session-id> or --last is required")
         session_dir = _resolve_session_dir(args.output_dir, session_id=args.session_id, use_last=args.last)
         llm = environment.llm if environment is not None else Environment.build_anthropic_llm()
-        write_evaluation(session_dir, llm=llm)
+        out = stdout or sys.stdout
+        out.write(f"Evaluating session {session_dir.name}... This may take a moment.\n")
+        out.flush()
+        evaluation_path = write_evaluation(session_dir, llm=llm)
+        out.write(f"Evaluation saved to {evaluation_path}.\n")
         return 0
 
     if args.command != "start":
@@ -60,6 +64,8 @@ def main(argv: list[str] | None = None, *, environment: Environment | None = Non
 
 def _resolve_session_dir(output_dir: Path, *, session_id: str | None, use_last: bool) -> Path:
     if use_last:
+        if not output_dir.is_dir():
+            raise RuntimeError(f"no session directories found in {output_dir}")
         session_dirs = sorted(path for path in output_dir.iterdir() if path.is_dir())
         if not session_dirs:
             raise RuntimeError(f"no session directories found in {output_dir}")

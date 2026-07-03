@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from interview.anthropic_llm import AnthropicLLM, MODEL_NAME, fake_anthropic_message
+from interview.anthropic_llm import AnthropicLLM, MODEL_NAME, OPENING_PROMPT, fake_anthropic_message
 
 
 class _RecordingMessagesAPI:
@@ -52,12 +52,25 @@ class AnthropicLLMTests(unittest.TestCase):
                     "Seed Instruction:\nConduza uma entrevista para engenheiro backend"
                 ),
                 "messages": [
+                    {"role": "user", "content": OPENING_PROMPT},
                     {"role": "assistant", "content": "Opening question"},
                     {"role": "user", "content": "My answer"},
                     {"role": "assistant", "content": "Second question"},
                     {"role": "user", "content": "Another answer"},
                 ],
             },
+        )
+
+    def test_sends_opening_prompt_when_history_is_empty(self) -> None:
+        client = _RecordingAnthropicClient("Opening question")
+        llm = AnthropicLLM("test-key", client=client)
+
+        reply = llm.next_turn(seed_instruction="Seed", history=[])
+
+        self.assertEqual(reply, "Opening question")
+        self.assertEqual(
+            client.messages.calls[0]["messages"],
+            [{"role": "user", "content": OPENING_PROMPT}],
         )
 
     def test_raises_when_anthropic_returns_no_text_blocks(self) -> None:
