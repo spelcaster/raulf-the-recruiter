@@ -142,8 +142,15 @@ class SessionRunner:
         return interviewer_files[-1].read_bytes()
 
     def _read_turn_history(self, session_dir: Path) -> list[str]:
-        turn_files = sorted(session_dir.glob("*.txt"))
+        # Order by turn number, interviewer before speaker within the same
+        # number — a plain lexical sort would group all interviewer files first.
+        turn_files = sorted(session_dir.glob("*.txt"), key=self._turn_order)
         return [path.read_text(encoding="utf-8").strip() for path in turn_files]
+
+    @staticmethod
+    def _turn_order(path: Path) -> tuple[int, int]:
+        speaker, number = path.stem.rsplit("_", 1)
+        return (int(number), 0 if speaker == "interviewer" else 1)
 
     def _stop_requested(self) -> bool:
         if not self._stdin_has_data(timeout_seconds=0.05):

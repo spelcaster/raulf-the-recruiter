@@ -50,12 +50,12 @@ class SessionRunnerLLMContractTests(unittest.TestCase):
     def test_rebuilds_seed_and_history_for_each_llm_turn(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             environment = Environment.build_fake(
-                llm_responses=["Opening question", "Follow-up question"],
-                transcripts=["My answer"],
+                llm_responses=["Opening question", "Follow-up question", "Third question"],
+                transcripts=["My answer", "Second answer"],
             )
             runner = SessionRunner(
                 environment=environment,
-                stdin=io.StringIO("t\n\n\nq\n"),
+                stdin=io.StringIO("t\n\n\nt\n\n\nq\n"),
                 stdout=io.StringIO(),
                 output_dir=Path(tmp),
             )
@@ -73,6 +73,15 @@ class SessionRunnerLLMContractTests(unittest.TestCase):
                     {
                         "seed_instruction": "Faça a entrevista para vaga de backend",
                         "history": ["Opening question", "My answer"],
+                    },
+                    {
+                        "seed_instruction": "Faça a entrevista para vaga de backend",
+                        "history": [
+                            "Opening question",
+                            "My answer",
+                            "Follow-up question",
+                            "Second answer",
+                        ],
                     },
                 ],
             )
