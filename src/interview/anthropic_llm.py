@@ -15,16 +15,19 @@ class AnthropicLLM:
         self._client = client or Anthropic(api_key=api_key)
 
     def next_turn(self, *, seed_instruction: str, history: list[str]) -> str:
-        response = self._client.messages.create(
-            model=MODEL_NAME,
-            max_tokens=MAX_TOKENS,
+        return self._create_text_response(
             system=self._system_prompt(seed_instruction),
             messages=self._messages_from_history(history),
         )
-        text = "".join(block.text for block in response.content if getattr(block, "type", None) == "text").strip()
-        if text:
-            return text
-        raise RuntimeError("Anthropic response did not include any text content")
+
+    def evaluate_session(self, *, prompt: str) -> str:
+        return self._create_text_response(
+            system=(
+                "You are an English coach evaluating a completed mock interview.\n"
+                "Follow the user's requested markdown structure exactly and keep the feedback qualitative."
+            ),
+            messages=[{"role": "user", "content": prompt}],
+        )
 
     def _system_prompt(self, seed_instruction: str) -> str:
         return (
@@ -43,6 +46,18 @@ class AnthropicLLM:
             role = "assistant" if index % 2 == 0 else "user"
             messages.append({"role": role, "content": turn})
         return messages
+
+    def _create_text_response(self, *, system: str, messages: list[dict[str, str]]) -> str:
+        response = self._client.messages.create(
+            model=MODEL_NAME,
+            max_tokens=MAX_TOKENS,
+            system=system,
+            messages=messages,
+        )
+        text = "".join(block.text for block in response.content if getattr(block, "type", None) == "text").strip()
+        if text:
+            return text
+        raise RuntimeError("Anthropic response did not include any text content")
 
 
 def fake_anthropic_message(text: str) -> SimpleNamespace:

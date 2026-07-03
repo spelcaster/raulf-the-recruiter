@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from interview.environment import Environment
+from interview.session_evaluator import write_evaluation
 from interview.session_metadata import SessionMetadata
 
 
@@ -100,6 +101,7 @@ class SessionRunner:
             if normalized == "q":
                 metadata.ended_cleanly = True
                 self._write_metadata(session_dir, metadata)
+                write_evaluation(session_dir, llm=self._environment.llm)
                 return 0
 
             self._stdout.write("Unknown command\n")
