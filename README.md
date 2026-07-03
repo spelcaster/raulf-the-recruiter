@@ -1,5 +1,10 @@
 # raulf-the-recruiter
 
+> Friends who tried this said it was scary good. If it helped you too,
+> [buy me a beer 🍺](https://ko-fi.com/hugodcarmo) or
+> [sponsor me on GitHub](https://github.com/sponsors/spelcaster/) — I promise
+> to drink it while fixing your GitHub issues.
+
 A voice-based CLI for practicing interviews and spoken English. An LLM plays
 the Interviewer: its replies are spoken aloud via TTS, you answer by talking
 into the mic, and your speech is transcribed and fed back into the
