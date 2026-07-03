@@ -14,6 +14,8 @@ two dimensions: your spoken English and the quality of your answers.
 The interview is always conducted in English, regardless of the language of
 the instruction that seeds it.
 
+![Typing vs Talking — why practicing with Raulf doesn't feel like prompting an AI](resources/images/raulf-workflow.png)
+
 ## Requirements
 
 - Python 3.12+ and [uv](https://docs.astral.sh/uv/)
