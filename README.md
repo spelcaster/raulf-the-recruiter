@@ -35,7 +35,7 @@ uv run interview start --seed-file ./seeds/backend.md
 Options:
 
 - `--voice NAME` — TTS voice (default: `alloy`)
-- `--output-dir DIR` — where session directories are created (default: current directory)
+- `--output-dir DIR` — where session directories are created (default: `sessions`)
 
 The opening question is generated, spoken aloud, and saved. Then a menu loop
 runs until you quit:
@@ -68,8 +68,8 @@ uv run interview evaluate --last
 ```
 
 `--last` picks the most recently modified session directory. Use
-`--output-dir` if sessions were created somewhere other than the current
-directory.
+`--output-dir` if sessions were created somewhere other than the default
+`sessions` directory.
 
 ## Session output
 

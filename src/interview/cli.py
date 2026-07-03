@@ -17,12 +17,12 @@ def build_parser() -> argparse.ArgumentParser:
     start_parser.add_argument("--seed")
     start_parser.add_argument("--seed-file", type=Path)
     start_parser.add_argument("--voice", default="alloy")
-    start_parser.add_argument("--output-dir", type=Path, default=Path.cwd())
+    start_parser.add_argument("--output-dir", type=Path, default=Path("sessions"))
 
     evaluate_parser = subparsers.add_parser("evaluate")
     evaluate_parser.add_argument("session_id", nargs="?")
     evaluate_parser.add_argument("--last", action="store_true")
-    evaluate_parser.add_argument("--output-dir", type=Path, default=Path.cwd())
+    evaluate_parser.add_argument("--output-dir", type=Path, default=Path("sessions"))
 
     return parser
 
@@ -60,6 +60,8 @@ def main(argv: list[str] | None = None, *, environment: Environment | None = Non
 
 def _resolve_session_dir(output_dir: Path, *, session_id: str | None, use_last: bool) -> Path:
     if use_last:
+        if not output_dir.is_dir():
+            raise RuntimeError(f"no session directories found in {output_dir}")
         session_dirs = sorted(path for path in output_dir.iterdir() if path.is_dir())
         if not session_dirs:
             raise RuntimeError(f"no session directories found in {output_dir}")
