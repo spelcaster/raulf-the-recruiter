@@ -20,9 +20,31 @@ the instruction that seeds it.
 
 - Python 3.12+ and [uv](https://docs.astral.sh/uv/)
 - A working microphone and audio output (audio I/O uses `sounddevice`)
-- API keys, exported as environment variables:
+- API keys:
   - `ANTHROPIC_API_KEY` — Interviewer turns and Evaluation (Claude Opus 4.8)
   - `OPENAI_API_KEY` — TTS (`gpt-4o-mini-tts`) and STT (`gpt-4o-transcribe`)
+
+## Setup
+
+Put your API keys in a `.env` file rather than exporting them in your shell.
+Exported keys are prone to leaking — they linger in shell history, dotfiles,
+and the environment of every process you spawn. A `.env` file stays in the
+project directory and is already gitignored.
+
+Copy the shipped example and fill in your keys:
+
+```
+cp .env.example .env
+```
+
+Then open `.env` and set the values:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+```
+
+All commands below load it with `uv run --env-file .env`.
 
 ## Usage
 
@@ -30,13 +52,13 @@ Start a session with a Seed Instruction — the scenario, role, or question set
 for the interview:
 
 ```
-uv run interview start --seed "Senior backend engineer interview, focus on system design"
+uv run --env-file .env interview start --seed "Senior backend engineer interview, focus on system design"
 ```
 
 or load it from a file:
 
 ```
-uv run interview start --seed-file ./seeds/backend.md
+uv run --env-file .env interview start --seed-file ./seeds/backend.md
 ```
 
 Options:
@@ -71,8 +93,8 @@ A session that ended without `q` (crash, Ctrl-C) can still be evaluated
 afterwards with the standalone subcommand:
 
 ```
-uv run interview evaluate <session-id>
-uv run interview evaluate --last
+uv run --env-file .env interview evaluate <session-id>
+uv run --env-file .env interview evaluate --last
 ```
 
 `--last` picks the most recently modified session directory. Use
